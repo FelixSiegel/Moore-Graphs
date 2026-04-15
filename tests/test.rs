@@ -3,6 +3,10 @@ mod graph;
 
 use graph::Graph;
 
+fn has_edge(graph: &Graph, u: usize, v: usize) -> bool {
+    (graph.matrix[u] >> v) & 1 == 1
+}
+
 // ── Helpers to build named test graphs ───────────────────────────────────
 
 /// C₅ — the 5-cycle; the Moore graph for k=2, diameter=2
@@ -69,9 +73,8 @@ fn test_display_empty_graph() {
     let g = Graph::new(5, 2);
     let output = format!("{}", g);
     println!("Empty 5-node graph:\n{}", output);
-    // All entries should be 0
-    assert!(output.contains('0'));
-    assert!(!output.contains('1'));
+    // All adjacency rows should be empty bitboards.
+    assert!(g.matrix.iter().all(|row| *row == 0));
 }
 
 #[test]
@@ -79,9 +82,9 @@ fn test_display_triangle() {
     let g = triangle_graph();
     println!("Triangle (K₃):\n{}", g);
     // Diagonal is 0, off-diagonal edges are 1
-    assert!(!g.matrix[0][0]);
-    assert!(g.matrix[0][1]);
-    assert!(g.matrix[1][0]);
+    assert!(!has_edge(&g, 0, 0));
+    assert!(has_edge(&g, 0, 1));
+    assert!(has_edge(&g, 1, 0));
 }
 
 #[test]

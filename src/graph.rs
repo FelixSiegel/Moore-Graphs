@@ -1,57 +1,46 @@
 use std::fmt;
 
 pub struct Graph {
-    pub n: usize,               // Verticies/Nodes
-    pub k: usize,               // Degree/Edges per Vertex
-    pub matrix: Vec<Vec<bool>>, // 1 = edge, 0 = no edge
+    pub n: usize,         // Verticies/Nodes
+    pub k: usize,         // Degree/Edges per Vertex
+    pub matrix: Vec<u64>, // Adjacency list with bitboards: 1 = edge, 0 = no edge
 }
 
 #[allow(dead_code)]
-
 impl Graph {
     pub fn new(n: usize, k: usize) -> Self {
         Graph {
             n,
             k,
-            matrix: vec![vec![false; n]; n],
+            matrix: vec![0u64; n],
         }
     }
 
     pub fn add_edge(&mut self, u: usize, v: usize) {
-        self.matrix[u][v] = true;
-        self.matrix[v][u] = true;
+        self.matrix[u] |= 1 << v;
+        self.matrix[v] |= 1 << u;
     }
 
     pub fn remove_edge(&mut self, u: usize, v: usize) {
-        self.matrix[u][v] = false;
-        self.matrix[v][u] = false;
+        self.matrix[u] &= !(1 << v);
+        self.matrix[v] &= !(1 << u);
     }
 
     // check for each vertex in the adjacency matrix if it has exactly k edges
     pub fn check_degree(&self) -> bool {
         self.matrix
             .iter()
-            .all(|row| (row.iter().filter(|&&x| x).count()) == self.k)
+            .all(|row| row.count_ones() as usize == self.k)
     }
 
     // probably completly ass and inefficient BUT it works!
     pub fn check_triangles(&self) -> bool {
-        for u in 0..self.n {
-            // find all verticies connected to u
-            let neighbors: Vec<usize> = self.matrix[u]
-                .iter()
-                .enumerate()
-                .filter_map(|(idx, &connected)| if connected { Some(idx) } else { None })
-                .collect();
-
-            // check if any of the neighbord are connected together, so they build a triangle
-            // e.g. u -> v and u -> w, then if v -> w it builds an triangle
-            for i in 0..neighbors.len() {
-                for j in (i + 1)..neighbors.len() {
-                    let v = neighbors[i];
-                    let w = neighbors[j];
-
-                    if self.matrix[v][w] {
+        for u in 0..self.matrix.len() {
+            for v in (u + 1)..self.matrix.len() {
+                // check if u and v are connected
+                if (self.matrix[u] >> v) & 1 == 1 {
+                    // check if they share a common neighbor
+                    if self.matrix[u] & self.matrix[v] > 0 {
                         return true;
                     }
                 }
@@ -82,7 +71,11 @@ impl fmt::Display for Graph {
         for i in 0..self.n {
             write!(f, "{:2} |", i)?;
             for j in 0..self.n {
-                write!(f, "{:2}", if self.matrix[i][j] { 1 } else { 0 })?;
+                write!(
+                    f,
+                    "{:2}",
+                    if (self.matrix[i] >> j) & 1 == 1 { 1 } else { 0 }
+                )?;
             }
             writeln!(f)?;
         }
