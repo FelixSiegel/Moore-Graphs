@@ -26,14 +26,15 @@ impl Graph {
         self.matrix[v] &= !(1 << u);
     }
 
-    // check for each vertex in the adjacency matrix if it has exactly k edges
-    pub fn check_degree(&self) -> bool {
-        self.matrix
-            .iter()
-            .all(|row| row.count_ones() as usize == self.k)
+    pub fn degree(&self, node: u64) -> usize {
+        node.count_ones() as usize
     }
 
-    // probably completly ass and inefficient BUT it works!
+    // check for each vertex in the adjacency list if it has exactly k edges
+    pub fn check_degree(&self) -> bool {
+        self.matrix.iter().all(|&row| self.degree(row) == self.k)
+    }
+
     pub fn check_triangles(&self) -> bool {
         for u in 0..self.matrix.len() {
             for v in (u + 1)..self.matrix.len() {
@@ -49,7 +50,6 @@ impl Graph {
         false
     }
 
-    // u -> v and
     pub fn check_four_cycles(&self) -> bool {
         for u in 0..self.matrix.len() {
             for v in (u + 1)..self.matrix.len() {
@@ -59,6 +59,42 @@ impl Graph {
                     return true;
                 }
             }
+        }
+        false
+    }
+
+    pub fn search(&mut self) -> bool {
+        // Final stop condition (graph is full and valid)
+        if self.check_degree() && !self.check_triangles() && !self.check_four_cycles() {
+            return true;
+        }
+
+        // Check degree of each vertex: if it's not full add edges -> validate -> backtrace or continue
+        for u in 0..self.n {
+            let node = self.matrix[u];
+            if self.degree(node) == self.k {
+                continue;
+            }
+
+            // find a potential partner node
+            for v in 0..self.n {
+                // If same node or already connected or v is already full degree => skip
+                if u == v || (node >> v) & 1 == 1 || self.degree(self.matrix[v]) == self.k {
+                    continue;
+                }
+
+                self.add_edge(u, v);
+                if !self.check_triangles() && !self.check_four_cycles() {
+                    if self.search() {
+                        return true;
+                    }
+                }
+                // not valid so backtrack
+                self.remove_edge(u, v);
+            }
+
+            // if no possible connection found -> current u cant reach full degree, so path is invalid
+            return false;
         }
         false
     }
