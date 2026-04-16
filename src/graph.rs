@@ -95,6 +95,22 @@ impl Graph {
         true
     }
 
+    // to much to explain in this code comment, I'll (hopefully write a blog post about this whole topic and explain it there)
+    pub fn pin_tree(&mut self) {
+        // Start pinning (connecting) the first k nodes to vertex 0
+        for i in 1..=self.k {
+            self.add_edge(0, i);
+        }
+        // Pinning the remaining nodes to the remaining k-1 branches of the level 1 nodes
+        let mut next = self.k + 1;
+        for i in 1..=self.k {
+            for _ in 0..(self.k - 1) {
+                self.add_edge(i, next);
+                next += 1;
+            }
+        }
+    }
+
     pub fn search(&mut self) -> bool {
         // Final stop condition (graph is full and valid)
         if self.check_degree() && !self.check_triangles() && !self.check_four_cycles() {
