@@ -4,6 +4,7 @@ pub struct Graph {
     pub n: usize,         // Verticies/Nodes
     pub k: usize,         // Degree/Edges per Vertex
     pub matrix: Vec<u64>, // Adjacency list with bitboards: 1 = edge, 0 = no edge
+    needs_edges: u64,     // track which nodes require edges: 1 = missing edges, 0 = full degree
 }
 
 #[allow(dead_code)]
@@ -13,17 +14,27 @@ impl Graph {
             n,
             k,
             matrix: vec![0u64; n],
+            needs_edges: (1u64 << n) - 1,
         }
     }
 
     pub fn add_edge(&mut self, u: usize, v: usize) {
         self.matrix[u] |= 1 << v;
         self.matrix[v] |= 1 << u;
+
+        // check degree of both and update need_edges bitboard accordingly
+        if self.degree(self.matrix[u]) == self.k {
+            self.needs_edges &= !(1 << u)
+        }
+        if self.degree(self.matrix[v]) == self.k {
+            self.needs_edges &= !(1 << v)
+        }
     }
 
     pub fn remove_edge(&mut self, u: usize, v: usize) {
         self.matrix[u] &= !(1 << v);
         self.matrix[v] &= !(1 << u);
+        self.needs_edges |= 1 << v | 1 << u;
     }
 
     pub fn degree(&self, node: u64) -> usize {
@@ -32,14 +43,14 @@ impl Graph {
 
     // check for each vertex in the adjacency list if it has exactly k edges
     pub fn check_degree(&self) -> bool {
-        self.matrix.iter().all(|&row| self.degree(row) == self.k)
+        self.needs_edges == 0
     }
 
     pub fn check_triangles(&self) -> bool {
         for u in 0..self.matrix.len() {
             for v in (u + 1)..self.matrix.len() {
                 // check if u and v are connected
-                if (self.matrix[u] >> v) & 1 == 1 {
+                if (self.matrix[u] & (1 << v)) != 0 {
                     // check if they share a common neighbor w, so that u -> v -> w -> u build a triangle
                     if self.matrix[u] & self.matrix[v] > 0 {
                         return true;
@@ -69,34 +80,28 @@ impl Graph {
             return true;
         }
 
-        // Check degree of each vertex: if it's not full add edges -> validate -> backtrace or continue
-        for u in 0..self.n {
-            let node = self.matrix[u];
-            if self.degree(node) == self.k {
+        let u = self.needs_edges.trailing_zeros() as usize;
+        let node = self.matrix[u];
+
+        // find a potential partner node
+        for v in 0..self.n {
+            // If same node or already connected or v is already full degree => skip
+            if u == v || (node & (1 << v)) != 0 || self.needs_edges & (1 << v) == 0 {
                 continue;
             }
 
-            // find a potential partner node
-            for v in 0..self.n {
-                // If same node or already connected or v is already full degree => skip
-                if u == v || (node >> v) & 1 == 1 || self.degree(self.matrix[v]) == self.k {
-                    continue;
+            self.add_edge(u, v);
+            if !self.check_triangles() && !self.check_four_cycles() {
+                if self.search() {
+                    return true;
                 }
-
-                self.add_edge(u, v);
-                if !self.check_triangles() && !self.check_four_cycles() {
-                    if self.search() {
-                        return true;
-                    }
-                }
-                // not valid so backtrack
-                self.remove_edge(u, v);
             }
-
-            // if no possible connection found -> current u cant reach full degree, so path is invalid
-            return false;
+            // not valid so backtrack
+            self.remove_edge(u, v);
         }
-        false
+
+        // if no possible connection found -> current u cant reach full degree, so path is invalid
+        return false;
     }
 }
 
