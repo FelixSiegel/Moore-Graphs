@@ -39,7 +39,7 @@ impl Graph {
             for v in (u + 1)..self.matrix.len() {
                 // check if u and v are connected
                 if (self.matrix[u] >> v) & 1 == 1 {
-                    // check if they share a common neighbor
+                    // check if they share a common neighbor w, so that u -> v -> w -> u build a triangle
                     if self.matrix[u] & self.matrix[v] > 0 {
                         return true;
                     }
@@ -49,7 +49,17 @@ impl Graph {
         false
     }
 
+    // u -> v and
     pub fn check_four_cycles(&self) -> bool {
+        for u in 0..self.matrix.len() {
+            for v in (u + 1)..self.matrix.len() {
+                // if u and v are opposite (so they arent connected directly), but if
+                // they share 2 same neighbors they build a 4-cylce together
+                if (self.matrix[u] & self.matrix[v]).count_ones() == 2 {
+                    return true;
+                }
+            }
+        }
         false
     }
 }
