@@ -74,6 +74,27 @@ impl Graph {
         false
     }
 
+    // we dont need to check the entire graph for triangles etc everytime if we just check a new conenction before adding it
+    pub fn connectable(&self, u: usize, v: usize) -> bool {
+        // Triangle check: if u and v share same neighbor -> triangle
+        if (self.matrix[u] & self.matrix[v]) != 0 {
+            return false;
+        }
+
+        // Cube check: defers slighlty from the general function, because u and v arent opposites, but should be connected instead
+        // Instead we check if any of their neighbors are already connected
+        let mut u_neighbors = self.matrix[u];
+        while u_neighbors != 0 {
+            let n = u_neighbors.trailing_zeros() as usize;
+
+            if (self.matrix[v] & self.matrix[n]) != 0 {
+                return false;
+            }
+            u_neighbors &= u_neighbors - 1;
+        }
+        true
+    }
+
     pub fn search(&mut self) -> bool {
         // Final stop condition (graph is full and valid)
         if self.check_degree() && !self.check_triangles() && !self.check_four_cycles() {
@@ -90,14 +111,16 @@ impl Graph {
                 continue;
             }
 
-            self.add_edge(u, v);
-            if !self.check_triangles() && !self.check_four_cycles() {
+            if self.connectable(u, v) {
+                self.add_edge(u, v);
+
                 if self.search() {
                     return true;
                 }
+
+                // not valid so backtrack
+                self.remove_edge(u, v);
             }
-            // not valid so backtrack
-            self.remove_edge(u, v);
         }
 
         // if no possible connection found -> current u cant reach full degree, so path is invalid
