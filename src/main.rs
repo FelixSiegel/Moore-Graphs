@@ -3,7 +3,7 @@ mod graph;
 use graph::Graph;
 
 fn main() {
-    let k = 7;
+    let k = 5;
     let n = k * k + 1;
 
     let mut graph = Graph::new(n, k);

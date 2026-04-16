@@ -121,9 +121,10 @@ impl Graph {
         let node = self.matrix[u];
 
         // find a potential partner node
-        for v in 0..self.n {
-            // If same node or already connected or v is already full degree => skip
-            if u == v || (node & (1 << v)) != 0 || self.needs_edges & (1 << v) == 0 {
+        for v in (u + 1)..self.n {
+            // If already connected or v is already full degree => skip
+            // same node check is now already implicit in the for loop range
+            if (node & (1 << v)) != 0 || self.needs_edges & (1 << v) == 0 {
                 continue;
             }
 
