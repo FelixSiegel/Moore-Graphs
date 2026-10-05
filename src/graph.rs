@@ -111,37 +111,143 @@ impl Graph {
         }
     }
 
-    pub fn search(&mut self) -> bool {
-        // Final stop condition (graph is full and valid)
-        if self.check_degree() && !self.check_triangles() && !self.check_four_cycles() {
-            return true;
+    // breaks automorphisms / symmetries among the branches and leaves of the pinned tree:
+    // 1. Connects the first leaf of branch 0 to the first leaf of every other branch (1..k).
+    // 2. Connects the remaining leaves of branch 0 identically to the leaves of branch 1.
+    pub fn pin_symmetries(&mut self) {
+        if self.k < 2 {
+            return;
+        }
+        let k = self.k;
+        let leaf = move |g: usize, m: usize| -> usize { (k + 1) + g * (k - 1) + m };
+
+        // Symmetry 1: first leaf of group 0 connects to first leaf of all groups 1..k
+        for g in 1..self.k {
+            let u = leaf(0, 0);
+            let v = leaf(g, 0);
+            if (self.matrix[u] & (1 << v)) == 0 {
+                self.add_edge(u, v);
+            }
         }
 
-        let u = self.needs_edges.trailing_zeros() as usize;
-        let node = self.matrix[u];
-
-        // find a potential partner node
-        for v in (u + 1)..self.n {
-            // If already connected or v is already full degree => skip
-            // same node check is now already implicit in the for loop range
-            if (node & (1 << v)) != 0 || self.needs_edges & (1 << v) == 0 {
-                continue;
-            }
-
-            if self.connectable(u, v) {
+        // Symmetry 2: leaves 1..k-2 of group 0 match identically to group 1
+        for m in 1..(self.k - 1) {
+            let u = leaf(0, m);
+            let v = leaf(1, m);
+            if (self.matrix[u] & (1 << v)) == 0 {
                 self.add_edge(u, v);
+            }
+        }
+    }
 
-                if self.search() {
+    // computes the bitmask of all vertices that cannot be connected to `u`
+    // without violating girth >= 5 (i.e. all vertices at distance 1 or 2 from `u`).
+    #[inline]
+    pub fn forbidden_mask(&self, u: usize) -> u64 {
+        let mut forbidden = self.matrix[u];
+        let mut nbrs = self.matrix[u];
+        while nbrs != 0 {
+            let w = nbrs.trailing_zeros() as usize;
+            forbidden |= self.matrix[w];
+            nbrs &= nbrs - 1;
+        }
+        forbidden
+    }
+
+    pub fn search(&mut self) -> bool {
+        // if empty graph, pin tree
+        if self.matrix[0] == 0 {
+            self.pin_tree();
+        }
+        // break symmetries on leaves
+        self.pin_symmetries();
+
+        self.search_recursive()
+    }
+
+    fn search_recursive(&mut self) -> bool {
+        if self.check_degree() {
+            return !self.check_triangles() && !self.check_four_cycles();
+        }
+
+        let leaf_start = self.k + 1;
+        let leaf_count = self.k - 1;
+
+        let mut min_cands = usize::MAX;
+        let mut best_u = usize::MAX;
+        let mut best_gv = usize::MAX;
+
+        // MRV (Minimum Remaining Values): find leaf u and target group g_v with the fewest candidates
+        for g_u in 0..self.k {
+            let u_start = leaf_start + g_u * leaf_count;
+            for u_offset in 0..leaf_count {
+                let u = u_start + u_offset;
+                if (self.needs_edges & (1u64 << u)) == 0 {
+                    continue;
+                }
+
+                let forbidden = self.forbidden_mask(u);
+
+                for g_v in 0..self.k {
+                    if g_v == g_u {
+                        continue;
+                    }
+
+                    let v_start = leaf_start + g_v * leaf_count;
+                    let g_v_mask = ((1u64 << leaf_count) - 1) << v_start;
+
+                    // in case u already connects to group g_v we can skip
+                    if (self.matrix[u] & g_v_mask) != 0 {
+                        continue;
+                    }
+
+                    // count candidate partner vertices in g_v
+                    let mut count = 0;
+                    for v_offset in 0..leaf_count {
+                        let v = v_start + v_offset;
+                        if (self.needs_edges & (1u64 << v)) != 0
+                            && (forbidden & self.matrix[v]) == 0
+                        {
+                            count += 1;
+                        }
+                    }
+
+                    // Fail-first principle: if any group has 0 valid candidates for u it's dead end
+                    if count == 0 {
+                        return false;
+                    }
+
+                    if count < min_cands {
+                        min_cands = count;
+                        best_u = u;
+                        best_gv = g_v;
+                    }
+                }
+            }
+        }
+
+        if best_u == usize::MAX {
+            return self.check_degree();
+        }
+
+        // branch on candidates in best_gv
+        let v_start = leaf_start + best_gv * leaf_count;
+        let forbidden = self.forbidden_mask(best_u);
+
+        for v_offset in 0..leaf_count {
+            let v = v_start + v_offset;
+            if (self.needs_edges & (1u64 << v)) != 0 && (forbidden & self.matrix[v]) == 0 {
+                self.add_edge(best_u, v);
+
+                if self.search_recursive() {
                     return true;
                 }
 
-                // not valid so backtrack
-                self.remove_edge(u, v);
+                self.remove_edge(best_u, v);
             }
         }
 
-        // if no possible connection found -> current u cant reach full degree, so path is invalid
-        return false;
+        false
     }
 }
 
