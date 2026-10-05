@@ -9,12 +9,25 @@ pub struct Graph {
 
 #[allow(dead_code)]
 impl Graph {
+    pub const MAX_NODES: usize = 64;
+
+    #[inline]
+    pub const fn fits_in_bitboard(n: usize) -> bool {
+        n <= Self::MAX_NODES
+    }
+
     pub fn new(n: usize, k: usize) -> Self {
+        assert!(
+            Self::fits_in_bitboard(n),
+            "Graph node count {} exceeds u64 bitboard capacity (max {} nodes)",
+            n,
+            Self::MAX_NODES
+        );
         Graph {
             n,
             k,
             matrix: vec![0u64; n],
-            needs_edges: if n >= 64 { u64::MAX } else { (1u64 << n) - 1 },
+            needs_edges: if n == 64 { u64::MAX } else { (1u64 << n) - 1 },
         }
     }
 

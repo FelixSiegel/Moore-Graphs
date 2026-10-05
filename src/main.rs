@@ -10,6 +10,16 @@ fn main() {
         .unwrap_or(7);
     let n = k * k + 1;
 
+    if !Graph::fits_in_bitboard(n) {
+        eprintln!(
+            "Graph for k={} requires n={} nodes, which exceeds the u64 bitboard capacity (max {} nodes, k <= 7).",
+            k,
+            n,
+            Graph::MAX_NODES
+        );
+        return;
+    }
+
     let mut graph = Graph::new(n, k);
     println!(
         "Empty graph with {} nodes for degree k={} created.",
