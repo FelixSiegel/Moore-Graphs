@@ -4,7 +4,10 @@ use graph::Graph;
 use std::time::Instant;
 
 fn main() {
-    let k = 7;
+    let k = std::env::args()
+        .nth(1)
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(7);
     let n = k * k + 1;
 
     let mut graph = Graph::new(n, k);

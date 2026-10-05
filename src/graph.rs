@@ -14,8 +14,35 @@ impl Graph {
             n,
             k,
             matrix: vec![0u64; n],
-            needs_edges: (1u64 << n) - 1,
+            needs_edges: if n >= 64 { u64::MAX } else { (1u64 << n) - 1 },
         }
+    }
+
+    // Checks whether a degree `k` is spectrally feasible for a Moore graph of diameter 2
+    // from first principles.
+    //
+    // Any Moore graph of diameter 2 must satisfy the matrix equation:
+    //   A² + A - (k - 1)I = J
+    //
+    // This requires the non-trivial eigenvalues to have integer multiplicities:
+    //   m₁,₂ = (k² ± k(k - 2) / √(4k - 3)) / 2
+    pub fn is_spectrally_feasible(k: usize) -> bool {
+        if k < 2 {
+            return false;
+        }
+        if k == 2 {
+            return true;
+        }
+        let disc = 4 * k - 3;
+        let s = (disc as f64).sqrt().round() as usize;
+        if s * s != disc {
+            return false; // √(4k - 3) must be an integer
+        }
+        if (k * (k - 2)) % s != 0 {
+            return false; // eigenvalue trace difference must be an integer
+        }
+        let diff = (k * (k - 2)) / s;
+        (k * k + diff) % 2 == 0 // multiplicity m₁ must be an integer
     }
 
     pub fn add_edge(&mut self, u: usize, v: usize) {
@@ -155,6 +182,11 @@ impl Graph {
     }
 
     pub fn search(&mut self) -> bool {
+        // spectral feasibility pre-check, eliminating impossible k
+        if !Self::is_spectrally_feasible(self.k) {
+            return false;
+        }
+
         // if empty graph, pin tree
         if self.matrix[0] == 0 {
             self.pin_tree();
