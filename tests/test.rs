@@ -237,3 +237,72 @@ fn test_five_cycle_is_moore_candidate() {
     assert!(!g.check_triangles());
     assert!(!g.check_four_cycles());
 }
+
+// ── Search & Capacity tests ────────────────────────────────────────────────
+
+#[test]
+fn test_search_k3_petersen() {
+    let mut g = Graph::new(10, 3);
+    assert!(g.search());
+    assert!(g.check_degree());
+    assert!(!g.check_triangles());
+    assert!(!g.check_four_cycles());
+}
+
+#[test]
+fn test_search_k4_non_existence() {
+    let mut g = Graph::new(17, 4);
+    assert!(!g.search(), "k=4 is spectrally infeasible");
+}
+
+#[test]
+fn test_search_k5_non_existence() {
+    let mut g = Graph::new(26, 5);
+    assert!(!g.search(), "k=5 is spectrally infeasible");
+}
+
+#[test]
+fn test_search_k6_non_existence() {
+    let mut g = Graph::new(37, 6);
+    assert!(!g.search(), "k=6 is spectrally infeasible");
+}
+
+#[test]
+fn test_search_k7_hoffman_singleton() {
+    let mut g = Graph::new(50, 7);
+    assert!(g.search(), "Hoffman-Singleton graph (k=7) must exist");
+    assert!(g.check_degree());
+    assert!(!g.check_triangles());
+    assert!(!g.check_four_cycles());
+}
+
+#[test]
+fn test_spectral_feasibility() {
+    assert!(Graph::is_spectrally_feasible(2));
+    assert!(Graph::is_spectrally_feasible(3));
+    assert!(!Graph::is_spectrally_feasible(4));
+    assert!(!Graph::is_spectrally_feasible(5));
+    assert!(!Graph::is_spectrally_feasible(6));
+    assert!(Graph::is_spectrally_feasible(7));
+    assert!(!Graph::is_spectrally_feasible(8));
+    assert!(Graph::is_spectrally_feasible(57));
+}
+
+#[test]
+fn test_bitboard_capacity_checks() {
+    // Fits in u64 layout:
+    assert!(Graph::fits_in_bitboard(5)); // k=2
+    assert!(Graph::fits_in_bitboard(10)); // k=3
+    assert!(Graph::fits_in_bitboard(50)); // k=7 (Hoffman-Singleton)
+    assert!(Graph::fits_in_bitboard(64)); // maximum limit
+
+    // Exceeds u64 layout:
+    assert!(!Graph::fits_in_bitboard(65));
+    assert!(!Graph::fits_in_bitboard(3250)); // k=57
+}
+
+#[test]
+#[should_panic(expected = "exceeds u64 bitboard capacity")]
+fn test_graph_new_panics_on_overflow() {
+    let _ = Graph::new(3250, 57);
+}
